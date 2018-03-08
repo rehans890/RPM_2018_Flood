@@ -20,6 +20,11 @@ udf.quantiles <- function(dataset, variable, quantile_increments){
 
 
 
+#Round variable to the nearest 'base' value provided by the user
+udf.mround <- function(variable,base){ 
+  base*round(variable/base) 
+} 
+
 
 
 #User function to create resid charts ON BURNRATES
@@ -37,7 +42,7 @@ udf.grouped_chart <- function(var_binned, var_estimated,dataset){
   
   summarized_data <- dataset %>%
     group_by(rlang::UQ(sym_binned)) %>%
-    summarise(mean_estimate = mean(rlang::UQ(sym_estimated)), polcount = n()) %>%
+    summarise(mean_estimate = mean(rlang::UQ(sym_estimated)), polcount = n()/nrow(dataset)) %>%
     as.data.frame()
   
   mean_var <- paste0("mean_",var_estimated)
@@ -69,7 +74,7 @@ udf.grouped_chart <- function(var_binned, var_estimated,dataset){
   resid_plot <- resid_plot +
     scale_y_continuous(sec.axis = sec_axis(~./max(summarized_data$polcount), name = paste0("mean_",var_estimated))) +
     labs(x = var_binned,
-         y="Polcount",
+         y="Exposure Distribution",
          title = paste("Analysis of ",var_estimated," Grouped By ",var_binned, " Bins "))
   
   
@@ -100,7 +105,7 @@ udf.residchart_binned <- function(var_binned, var_estimated, var_actual=NULL, da
     
     summarized_data <- dataset %>%
       group_by(rlang::UQ(sym_binned)) %>%
-      summarise(mean_estimate = mean(rlang::UQ(sym_estimated)), polcount = n()) %>%
+      summarise(mean_estimate = mean(rlang::UQ(sym_estimated)), polcount = n()/nrow(dataset)) %>%
       as.data.frame()
     
     mean_var <- paste0("mean_",var_estimated)
@@ -132,7 +137,7 @@ udf.residchart_binned <- function(var_binned, var_estimated, var_actual=NULL, da
     resid_plot <- resid_plot +
       scale_y_continuous(sec.axis = sec_axis(~./max(summarized_data$polcount), name = paste0("mean_",var_estimated))) +
       labs(x = var_binned,
-           y="Polcount",
+           y="Exposure Distribution",
            title = paste("Analysis of ",var_estimated," Grouped By ",var_binned, " Bins "))
     
     
@@ -188,7 +193,7 @@ udf.residchart_binned <- function(var_binned, var_estimated, var_actual=NULL, da
     resid_plot <- resid_plot +
       scale_y_continuous(sec.axis = sec_axis(~./max(summarized_data$polcount), name = paste0("mean_",var_estimated))) +
       labs(x = var_binned,
-           y="Polcount",
+           y="Exposure Distribution",
            title = paste("Analysis of ",var_estimated," and ",var_actual,": Grouped By ",var_binned, " Bins "))
     
     

@@ -23,7 +23,7 @@
 ######################################################
 
 #Type needed packages here and R will install any packages that are not installed already
-needed.packages <- c('dplyr','data.table','ggplot2','rlang','xlsx','leaflet','htmlwidgets','mapview')
+needed.packages <- c('dplyr','data.table','ggplot2','rlang','xlsx','leaflet','htmlwidgets','mapview','DescTools')
 
 new.packages <- needed.packages[!(needed.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
@@ -45,14 +45,11 @@ working_data <- data.table::fread(file = "M:/Rehan/Private/CAS Severe Weather Wo
                                   data.table = FALSE)
 str(working_data)
 
-
-
 #Derive Estimated premium using formula: Estimated Premium = Estimated AAL / Target LR
 working_data <- working_data %>%
   mutate(derived_prem_A = estimated_AAL_A / target_lr,
          derived_prem_B = estimated_AAL_B / target_lr) %>%
   as.data.frame()
-
 
 
 ############################################################################################################
@@ -62,33 +59,41 @@ working_data <- working_data %>%
 #Gini Coefficient Calculation and Lorenz Curve Plotting
 par(mfrow=c(2,2))
 
-#Model A Premium
+#Model A Derived Premium
 plot(DescTools::Lc(x = working_data$derived_prem_A),
-     xlab="Quantiles",
+     xlab="Cumulative Percent of Portfolio",
      ylab="Cumulative Derived Premium",
      main = "Lorenz Curve - Model A - Derived Premium")
-text(x=.55,y=.45, paste("Gini: ",round(DescTools::Gini(x = working_data$derived_prem_A),3)) )
+graphics::text(x=.55,y=.45, paste("Gini: ",round(DescTools::Gini(x = working_data$derived_prem_A),3)) )
 
-#Model B Premium
+#Model B Derived Premium
 plot(DescTools::Lc(x = working_data$derived_prem_B),
-     xlab="Quantiles",
+     xlab="Cumulative Percent of Portfolio",
      ylab="Cumulative Derived Premium",
      main = "Lorenz Curve - Model B - Derived Premium")
-text(x=.55,y=.45, paste("Gini: ",round(DescTools::Gini(x = working_data$derived_prem_B),3)) )
+graphics::text(x=.55,y=.45, paste("Gini: ",round(DescTools::Gini(x = working_data$derived_prem_B),3)) )
 
 #Model A Estimated AAL
 plot(DescTools::Lc(x = working_data$estimated_AAL_A),
-     xlab="Quantiles",
+     xlab="Cumulative Percent of Portfolio",
      ylab="Cumulative Estimated AAL",
      main = "Lorenz Curve - Model A - Estimated AAL")
-text(x=.55,y=.45, paste("Gini: ",round(DescTools::Gini(x = working_data$estimated_AAL_A),3)) )
+graphics::text(x=.55,y=.45, paste("Gini: ",round(DescTools::Gini(x = working_data$estimated_AAL_A),3)) )
 
 #Model B Estimated AAL
 plot(DescTools::Lc(x = working_data$estimated_AAL_B),
-     xlab="Quantiles",
+     xlab="Cumulative Percent of Portfolio",
      ylab="Cumulative Estimated AAL",
      main = "Lorenz Curve - Model B - Estimated AAL")
-text(x=.55,y=.45, paste("Gini: ",round(DescTools::Gini(x = working_data$estimated_AAL_B),3)) )
+graphics::text(x=.55,y=.45, paste("Gini: ",round(DescTools::Gini(x = working_data$estimated_AAL_B),3)) )
+
+
+# CHECK THIS EXPLANATION
+# Why are the curves the same between Derived Premium and estimated AAL?
+# It is because we are assuming a constant loss ratio of 35% across all characteristics (which is not how it would be in real life)
+# To get more accurate, we need the true NFIP premiums to get actual loss ratios ( calculated as Cat Modeler AAL / True NFIP Prem)
+# Which we would then use to get our estimated Premium (Estimated AAL / Actual LR)
+# And then get our Estimated LR as (Cat Modeler AAL / Estimated Premium) = ( Cat AAL / Est AAL)*(Actual LR)
 
 
 
@@ -102,9 +107,9 @@ text(x=.55,y=.45, paste("Gini: ",round(DescTools::Gini(x = working_data$estimate
 ################# Mean Estimated_LR by Binned Numerical Variable ################# 
 
 #Cut the desired variable into equal spaced bins. Make sure to set min and max values to prevent volatile output.
-num_bins <- 20
+num_bins <- 10
 
-var_numeric <- "distance_to_river_ft"        #Numeric Variable to bin into groups
+var_numeric <- "rel_elev_ft"        #Numeric Variable to bin into groups
 var_estimated <- "estimated_LR_B"            #Variable to get mean of per group
 
 #Look at quantiles to bin variable for mapping
@@ -141,30 +146,33 @@ group_chart
 non_geo_data <- working_data
 
 #Select Variable you wish to map
-var_select <- c("estimated_LR_A")
+#var_select <- c("estimated_LR_A")
 #var_select <- c("estimated_LR_B")
-#var_select <- c("elev_ft")
+var_select <- c("elev_ft")
 
 #Look at quantiles to bin variable for mapping
 quantiles_check <- udf.quantiles(dataset=non_geo_data,variable =  var_select,quantile_increments =  .01)
 quantiles_check
 
 
-#User can edit by changing the percents (Follow same format). 
+#SET PARAMETERS FOR MAPPING
 var_capped <- c(paste0(var_select,"_cap"))
-min_val = quantiles_check[quantiles_check$quantile == "3%","values"]
-max_val = quantiles_check[quantiles_check$quantile == "97%","values"]
+
+start_color <- "red"
+min_val <- quantiles_check[quantiles_check$quantile == "3%","values"]    #This function is used to get quantile from above
+
+mid_color <-  "yellow" 
+mid_val <- 20
+
+end_color <- "green"
+max_val <- quantiles_check[quantiles_check$quantile == "97%","values"]   #This function is used to get quantile from above
+
+round_to_nearest <- 1         #May choose to change if mapping smaller numbers like estimated LR
 
 
-#Select color palette - Select the 3 color diverging palette, desired midpoint of color gradient, and number to round values to.
-#Loss Ratio color pallette
-my_colorpalette <- udf.diverge_colormap(start.color = "green", mid.color = "yellow", end.color = "red",
-                                        min.value = min_val, mid.value = 0.6, max.value = max_val, round_to = .01)
-
-
-#Use if selecting other numeric variables
-#my_colorpalette <- udf.diverge_colormap(start.color = "red", mid.color = "yellow", end.color = "green",
-#                                        min.value = min_val, mid.value = 20, max.value = max_val, round_to = 1)
+#Function to get color gradient used in map
+my_colorpalette <- udf.diverge_colormap(start.color = start_color, mid.color = mid_color , end.color = end_color,
+                                        min.value = min_val, mid.value = 20, max.value = max_val, round_to = round_to_nearest)
 
 
 #Cap and bottom the variable you want to map - Automatically
@@ -252,17 +260,18 @@ var_select <- c("site_deductible")
 percent_of_total <- table(non_geo_data[,var_select])/nrow(non_geo_data)
 
 
-#Turn our frequency table into a dataframe, rename the columns, and arrange them in alphabetical order (or distribution amount)
+#Turn our frequency table into a dataframe, rename the columns, and arrange them in order or prevalence in data
 quantiles_check <- percent_of_total %>%
   t() %>%
   as.data.frame() %>%
   select(Levels = Var2, percent = Freq) %>%
-  arrange(Levels)  #Change this if you want to arrange by distribution
+  arrange(desc(percent))  
 quantiles_check
 
 
-#Select color palette - Will always organize the colors based on percent distribution! So smallest percent gets the rightmost color
-my_colorpalette <- grDevices::colorRamp(colors = c("red","orange" ,"blue","green"))
+#Select colors - If more categories than color selections, more colors will be interpolated automatically
+#Will always organize the colors based on percent distribution! So smallest percent gets the rightmost color
+my_colorpalette <- grDevices::colorRamp(colors = c("red" ,"blue"))
 
 
 #Final Data Prep
@@ -312,9 +321,8 @@ dynamic_map_categorical
 
 
 
-
-
-
-
+set.seed(123)
+test <- data.frame(prior_lr = rnorm(n = nrow(working_data),mean = .6, sd = .30), 
+                   unif = runif(n = nrow(working_data),min = .6,max = .9))
 
 
