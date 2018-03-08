@@ -41,27 +41,27 @@ udf.grouped_chart <- function(var_binned, var_estimated,dataset){
   dataset <- dataset[order(dataset[,paste(var_estimated)]),]
   
   summarized_data <- dataset %>%
-    group_by(rlang::UQ(sym_binned)) %>%
-    summarise(mean_estimate = mean(rlang::UQ(sym_estimated)), polcount = n()/nrow(dataset)) %>%
+    dplyr::group_by(rlang::UQ(sym_binned)) %>%
+    dplyr::summarise(mean_estimate = mean(rlang::UQ(sym_estimated)), exposure_dist = n()/nrow(dataset), polcount = n()) %>%
+    dplyr::mutate(exposure_labels = paste0(round(exposure_dist,4)*100,"%")) %>%
     as.data.frame()
   
-  mean_var <- paste0("mean_",var_estimated)
   
-  
-  colnames(summarized_data) <- c(paste0(var_binned),"estimated_variable","polcount")
-  
+  colnames(summarized_data) <- c("binned_variable","estimated_variable","exposure_dist", "polcount", "exposure_labels")
+  summarized_data <- dplyr::arrange(summarized_data, binned_variable)
   
   #Initialize plot
-  resid_plot <-ggplot(data=summarized_data,aes(x=summarized_data[,paste(var_binned)]))
+  resid_plot <-ggplot(data=summarized_data,aes(x=binned_variable))
   
   #Add in lines and barplots as needed
   resid_plot <- resid_plot + 
-    geom_bar(aes(y = polcount,fill = "polcount", group = paste(var_binned)), stat = "identity") + 
-    geom_line(aes(y = estimated_variable*max(summarized_data$polcount), colour = "estimated_variable",group = paste(var_binned)))
+    geom_bar(aes(y = exposure_dist,fill = "exposure_dist", group = "binned_variable"), stat = "identity") +
+    geom_text(aes(x=binned_variable,y=exposure_dist,label=exposure_labels),vjust=0)+
+    geom_line(aes(y = estimated_variable*max(summarized_data$exposure_dist), colour = "estimated_variable",group = "binned_variable"))
   
   #Style colors and legend box
   resid_plot <- resid_plot +
-    scale_colour_manual(" ", values=c("polcount" = "grey", "estimated_variable" = "blue"))+
+    scale_colour_manual(" ", values=c("exposure_dist" = "grey", "estimated_variable" = "blue"))+
     scale_fill_manual("",values="grey")+
     theme(legend.key=element_blank(),
           legend.title=element_blank(),
@@ -72,7 +72,7 @@ udf.grouped_chart <- function(var_binned, var_estimated,dataset){
   
   #Add Secondary Y axis and Labels
   resid_plot <- resid_plot +
-    scale_y_continuous(sec.axis = sec_axis(~./max(summarized_data$polcount), name = paste0("mean_",var_estimated))) +
+    scale_y_continuous(sec.axis = sec_axis(~./max(summarized_data$exposure_dist), name = paste0("mean_",var_estimated))) +
     labs(x = var_binned,
          y="Exposure Distribution",
          title = paste("Analysis of ",var_estimated," Grouped By ",var_binned, " Bins "))
@@ -82,129 +82,6 @@ udf.grouped_chart <- function(var_binned, var_estimated,dataset){
   return(resid_plot)
   
 }
-
-
-
-
-
-#User function to create resid charts on 3 vars -
-#The binned variable for x-axis to make counts bars. 2 lines - mean estimated var for each bin and mean actual var for each bin
-#Use whatever the response variable is
-udf.residchart_binned <- function(var_binned, var_estimated, var_actual=NULL, dataset){
-  
-  if (is.null(var_actual)){
-    sym_binned <- rlang::sym(var_binned)
-    sym_estimated <- rlang::sym(var_estimated)
-    
-    
-    #Remove any data with Infinity values as these are errors
-    dataset <- dataset[!(dataset[,paste(var_estimated)] == -Inf) | (dataset[,paste(var_estimated)] == Inf),]
-    
-    #Sort Data
-    dataset <- dataset[order(dataset[,paste(var_estimated)]),]
-    
-    summarized_data <- dataset %>%
-      group_by(rlang::UQ(sym_binned)) %>%
-      summarise(mean_estimate = mean(rlang::UQ(sym_estimated)), polcount = n()/nrow(dataset)) %>%
-      as.data.frame()
-    
-    mean_var <- paste0("mean_",var_estimated)
-    
-    
-    colnames(summarized_data) <- c(paste0(var_binned),"estimated_variable","polcount")
-    
-    
-    #Initialize plot
-    resid_plot <-ggplot(data=summarized_data,aes(x=summarized_data[,paste(var_binned)]))
-    
-    #Add in lines and barplots as needed
-    resid_plot <- resid_plot + 
-      geom_bar(aes(y = polcount,fill = "polcount", group = paste(var_binned)), stat = "identity") + 
-      geom_line(aes(y = estimated_variable*max(summarized_data$polcount), colour = "estimated_variable",group = paste(var_binned)))
-    
-    #Style colors and legend box
-    resid_plot <- resid_plot +
-      scale_colour_manual(" ", values=c("polcount" = "grey", "estimated_variable" = "blue"))+
-      scale_fill_manual("",values="grey")+
-      theme(legend.key=element_blank(),
-            legend.title=element_blank(),
-            legend.box="horizontal",
-            legend.position = "bottom") +
-      theme(axis.text.x = element_text(angle = 45,hjust = 1))
-    
-    
-    #Add Secondary Y axis and Labels
-    resid_plot <- resid_plot +
-      scale_y_continuous(sec.axis = sec_axis(~./max(summarized_data$polcount), name = paste0("mean_",var_estimated))) +
-      labs(x = var_binned,
-           y="Exposure Distribution",
-           title = paste("Analysis of ",var_estimated," Grouped By ",var_binned, " Bins "))
-    
-    
-    #Return Plot  
-    return(resid_plot)
-    
-    
-    
-    
-  }else{
-    sym_binned <- rlang::sym(var_binned)
-    sym_estimated <- rlang::sym(var_estimated)
-    sym_actual <- rlang::sym(var_actual)  
-    
-    #Remove any data with Infinity values as these are errors
-    dataset <- dataset[!(dataset[,paste(var_estimated)] == -Inf) | (dataset[,paste(var_estimated)] == Inf),]
-    
-    #Sort Data
-    dataset <- dataset[order(dataset[,paste(var_estimated)]),]
-    
-    summarized_data <- dataset %>%
-      group_by(rlang::UQ(sym_binned)) %>%
-      summarise(mean_estimate = mean(rlang::UQ(sym_estimated)),mean_actual = mean(rlang::UQ(sym_actual)) ,polcount = n()) %>%
-      as.data.frame()
-    
-    est_colname <- paste0("mean_",var_estimated)
-    act_colname <- paste0("mean_",var_actual)  
-    
-    colnames(summarized_data) <- c(paste0(var_binned),"estimated_variable","actual_variable", "polcount")
-    
-    
-    #Initialize plot
-    resid_plot <-ggplot(data=summarized_data,aes(x=summarized_data[,paste(var_binned)]))
-    
-    #Add in lines and barplots as needed
-    resid_plot <- resid_plot + 
-      geom_bar(aes(y = polcount,fill = "polcount", group = paste(var_binned)), stat = "identity") + 
-      geom_line(aes(y = actual_variable*max(summarized_data$polcount), colour = "actual_variable",group = paste0(var_binned))) +
-      geom_line(aes(y = estimated_variable*max(summarized_data$polcount), colour = "estimated_variable",group = paste0(var_binned)))
-    
-    #Style colors and legend box
-    resid_plot <- resid_plot +
-      scale_colour_manual(" ", values=c("polcount" = "grey","actual_variable" = "red" ,"estimated_variable" = "blue"))+
-      scale_fill_manual("",values="grey")+
-      theme(legend.key=element_blank(),
-            legend.title=element_blank(),
-            legend.box="horizontal",
-            legend.position = "bottom") +
-      theme(axis.text.x = element_text(angle = 45,hjust = 1))
-    
-    
-    #Add Secondary Y axis and Labels
-    resid_plot <- resid_plot +
-      scale_y_continuous(sec.axis = sec_axis(~./max(summarized_data$polcount), name = paste0("mean_",var_estimated))) +
-      labs(x = var_binned,
-           y="Exposure Distribution",
-           title = paste("Analysis of ",var_estimated," and ",var_actual,": Grouped By ",var_binned, " Bins "))
-    
-    
-    #Return Plot  
-    return(resid_plot)
-    
-  }
-  
-}
-
-
 
 
 

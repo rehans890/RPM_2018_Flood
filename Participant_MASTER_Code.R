@@ -45,6 +45,16 @@ working_data <- data.table::fread(file = "M:/Rehan/Private/CAS Severe Weather Wo
                                   data.table = FALSE)
 str(working_data)
 
+#Variables that need to be converted to factors
+categorical_vars <- c("floodzone", "pre_firm","basement", "num_stories", 
+                      "site_deductible", "stream_order", "first_floor_elev_ft", "year_built")
+
+#Convert categorical to factors
+working_data[,categorical_vars] <- lapply(working_data[,categorical_vars],base::as.factor)
+str(working_data, list.len=ncol(working_data))
+
+
+
 #Derive Estimated premium using formula: Estimated Premium = Estimated AAL / Target LR
 working_data <- working_data %>%
   mutate(derived_prem_A = estimated_AAL_A / target_lr,
@@ -227,11 +237,13 @@ dynamic_map_numeric
 #                                Categorical Variable Data Analysis 
 ############################################################################################################
 
+#LIST OF CATEGORICAL VARIABLES: floodzone, pre_firm, basement, num_stories, 
+#site_deductible, stream_order, first_floor_elev_ft, year_built
 
 ################# Mean Estimated_LR by Categorical Variable ################# 
 #Set Categorical variable
 str(working_data)
-var_categorical <- "floodzone"
+var_categorical <- "pre_firm"
 
 var_estimated <- "estimated_LR_A"
 #var_estimated <- "estimated_LR_B"
@@ -316,13 +328,3 @@ dynamic_map_categorical
 #htmlwidgets::saveWidget(widget = dynamic_map_categorical, 
 #                        file = "PLEASE SET FILEPATH HERE", 
 #                        selfcontained = TRUE)
-
-
-
-
-
-set.seed(123)
-test <- data.frame(prior_lr = rnorm(n = nrow(working_data),mean = .6, sd = .30), 
-                   unif = runif(n = nrow(working_data),min = .6,max = .9))
-
-
