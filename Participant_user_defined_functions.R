@@ -1,3 +1,15 @@
+udf.load_packages <- function(needed_packages){
+  new.packages <- needed.packages[!(needed.packages %in% installed.packages()[,"Package"])]
+  if(length(new.packages)) install.packages(new.packages)
+  
+  #Loads all Needed packages
+  lapply(needed.packages, library, character.only = TRUE)
+  
+}
+
+
+
+
 #Get quantiles by user specified groups
 udf.quantiles <- function(dataset, variable, quantile_increments){
   dataset <- dataset %>% dplyr::arrange(dataset[,variable])
@@ -117,3 +129,45 @@ udf.diverge_colormap <- function(start.color, mid.color, end.color, min.value, m
   return(myColors)
 }
 
+
+
+udf.dynamic_map <- function(dataset,variable,color_map){
+  if (is.numeric(dataset[,variable])){
+    dynamic_map_numeric <-   leaflet::leaflet(data = dataset) %>%
+      leaflet::addTiles() %>%
+      leaflet::addProviderTiles("OpenStreetMap.Mapnik") %>%
+      leaflet::addCircleMarkers(
+        lng = dataset$longitude,
+        lat = dataset$latitude,
+        radius = .2,
+        color = ~ color_map(dataset[,variable])) %>%
+      leaflet::setView(lng = mean(dataset$longitude), lat = mean(dataset$latitude), zoom = 11) %>%
+      leaflet::addLegend(position = "bottomright",
+                         pal = color_map,
+                         values = dataset[,variable],
+                         title = variable)
+    
+  } else{
+    #Create Map
+    dynamic_map_categorical <-   leaflet::leaflet(data = dataset) %>%
+      
+      leaflet::addTiles() %>%
+      
+      leaflet::addProviderTiles("OpenStreetMap.Mapnik") %>%
+      
+      leaflet::addCircleMarkers(
+        lng = dataset$longitude,
+        lat = dataset$latitude,
+        radius = .2,
+        color = ~ color_map(dataset[,variable])) %>%
+      
+      leaflet::setView(lng = mean(dataset$longitude), lat = mean(dataset$latitude), zoom = 11) %>%
+      
+      leaflet::addLegend(position = "bottomright",
+                         pal = color_map,
+                         labels = dataset[,variable],
+                         values = dataset[,variable],
+                         title = variable)
+  }
+  
+}

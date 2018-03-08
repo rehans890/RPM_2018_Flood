@@ -22,17 +22,13 @@
 #Load and install packages. Import Data
 ######################################################
 
-#Type needed packages here and R will install any packages that are not installed already
-needed.packages <- c('dplyr','data.table','ggplot2','rlang','xlsx','leaflet','htmlwidgets','mapview','DescTools')
-
-new.packages <- needed.packages[!(needed.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
-
-#Loads all Needed packages
-lapply(needed.packages, library, character.only = TRUE)
-
 #Bring in User Defined Functions
 source("C:/Users/rehan.siddique/Documents/RPM_2018_Flood/Participant_user_defined_functions.R")
+
+
+#Type needed packages here and R will install any packages that are not installed already
+needed.packages <- c('dplyr','data.table','ggplot2','rlang','xlsx','leaflet','htmlwidgets','mapview','DescTools')
+udf.load_packages(needed_packages = needed.packages)
 
 #Set Target Loss Ratio - .35 was used in prepared exhibits
 target_lr <- .35
@@ -54,12 +50,14 @@ working_data[,categorical_vars] <- lapply(working_data[,categorical_vars],base::
 str(working_data, list.len=ncol(working_data))
 
 
-
 #Derive Estimated premium using formula: Estimated Premium = Estimated AAL / Target LR
 working_data <- working_data %>%
   mutate(derived_prem_A = estimated_AAL_A / target_lr,
          derived_prem_B = estimated_AAL_B / target_lr) %>%
   as.data.frame()
+
+
+
 
 
 ############################################################################################################
@@ -165,7 +163,7 @@ quantiles_check <- udf.quantiles(dataset=non_geo_data,variable =  var_select,qua
 quantiles_check
 
 
-#SET PARAMETERS FOR MAPPING
+#Set parameters used to get color gradient for map
 var_capped <- c(paste0(var_select,"_cap"))
 
 start_color <- "red"
@@ -180,6 +178,7 @@ max_val <- quantiles_check[quantiles_check$quantile == "97%","values"]   #This f
 round_to_nearest <- 1         #May choose to change if mapping smaller numbers like estimated LR
 
 
+
 #Function to get color gradient used in map
 my_colorpalette <- udf.diverge_colormap(start.color = start_color, mid.color = mid_color , end.color = end_color,
                                         min.value = min_val, mid.value = 20, max.value = max_val, round_to = round_to_nearest)
@@ -188,33 +187,22 @@ my_colorpalette <- udf.diverge_colormap(start.color = start_color, mid.color = m
 #Cap and bottom the variable you want to map - Automatically
 non_geo_data[,var_capped] <- pmax(min_val,pmin(non_geo_data[,var_select],max_val))
 
-#Final Data Prep
-leaflet_data <- non_geo_data[!is.na(non_geo_data$latitude) |!is.na(non_geo_data$longitude) ,c("latitude","longitude",var_capped)]
-
-bools <- apply(cbind(complete.cases(leaflet_data$latitude), complete.cases(leaflet_data$longitude)), 1, all)
-
-leaflet_data <- leaflet_data[bools,]
-
+#Final Data Prep - Removes NA and only selects necessary variables
+leaflet_data <- non_geo_data %>% 
+  select_(.dots = c("latitude","longitude",var_capped)) %>% 
+  filter(!(is.na(latitude)), !(is.na(longitude)) )
+  
 #Function to assign your color palette to the values in the data
-pal <- leaflet::colorNumeric(
+color_map <- leaflet::colorNumeric(
   palette = my_colorpalette, 
   domain = leaflet_data[,var_capped],
   na.color = "#808080")
 
+
 #Create Map
-dynamic_map_numeric <-   leaflet::leaflet(data = leaflet_data) %>%
-  leaflet::addTiles() %>%
-  leaflet::addProviderTiles("OpenStreetMap.Mapnik") %>%
-  leaflet::addCircleMarkers(
-    lng = leaflet_data$longitude,
-    lat = leaflet_data$latitude,
-    radius = .2,
-    color = ~ pal(leaflet_data[,var_capped])) %>%
-  leaflet::setView(lng = mean(leaflet_data$longitude), lat = mean(leaflet_data$latitude), zoom = 11) %>%
-  leaflet::addLegend(position = "bottomright",
-                     pal = pal,
-                     values = leaflet_data[,var_capped],
-                     title = var_capped)
+dynamic_map_numeric <-  udf.dynamic_map(dataset = leaflet_data, 
+                                            variable = var_capped, 
+                                            color_map = color_map )
 
 #Display Dynamic Map in Rstudio
 dynamic_map_numeric
@@ -258,14 +246,13 @@ group_chart
 
 ################# Create Dynamic Map for Categorical ################# 
 
-#Data Prep
 #Set data set
 non_geo_data <- working_data
 str(non_geo_data)
 
 
-#Select Variable you wish to map
-var_select <- c("site_deductible")
+#Select Variable you wish to map - can change or let it flow in from above
+var_select <- var_categorical
 
 
 #Look at quantiles to bin variable for mapping
@@ -286,39 +273,22 @@ quantiles_check
 my_colorpalette <- grDevices::colorRamp(colors = c("red" ,"blue"))
 
 
-#Final Data Prep
-leaflet_data <- non_geo_data[!is.na(non_geo_data$latitude) |!is.na(non_geo_data$longitude) ,c("latitude","longitude",var_select)]
-
-bools <- apply(cbind(complete.cases(leaflet_data$latitude), complete.cases(leaflet_data$longitude)), 1, all)
-
-leaflet_data <- leaflet_data[bools,]
+#Final Data Prep - Removes NA and only selects necessary variables
+leaflet_data <- non_geo_data %>% 
+  select_(.dots = c("latitude","longitude",var_select)) %>% 
+  filter(!(is.na(latitude)), !(is.na(longitude)) )
 
 #Function to assign your color palette to the values in the data
-pal <- leaflet::colorFactor(
+color_map <- leaflet::colorFactor(
   palette = my_colorpalette, 
   levels = unique(leaflet_data[,var_select]),
   na.color = "#808080")
 
+
 #Create Map
-dynamic_map_categorical <-   leaflet::leaflet(data = leaflet_data) %>%
-  
-  leaflet::addTiles() %>%
-  
-  leaflet::addProviderTiles("OpenStreetMap.Mapnik") %>%
-  
-  leaflet::addCircleMarkers(
-    lng = leaflet_data$longitude,
-    lat = leaflet_data$latitude,
-    radius = .2,
-    color = ~ pal(leaflet_data[,var_select])) %>%
-  
-  leaflet::setView(lng = mean(leaflet_data$longitude), lat = mean(leaflet_data$latitude), zoom = 11) %>%
-  
-  leaflet::addLegend(position = "bottomright",
-                     pal = pal,
-                     labels = leaflet_data[,var_select],
-                     values = leaflet_data[,var_select],
-                     title = var_select)
+dynamic_map_categorical <-  udf.dynamic_map(dataset = leaflet_data, 
+                                            variable = var_select, 
+                                            color_map = color_map )
 
 #Display Dynamic Map in Rstudio
 dynamic_map_categorical
