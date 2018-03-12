@@ -22,8 +22,12 @@
 #Load and install packages. Import Data
 ######################################################
 
+#Set Working Directory (Use folder you unzipped files to)
+setwd()
+
+
 #Bring in User Defined Functions
-source("C:/Users/rehan.siddique/Documents/RPM_2018_Flood/Participant_user_defined_functions.R")
+source("Participant_user_defined_functions.R")
 
 
 #Type needed packages here and R will install any packages that are not installed already
@@ -31,8 +35,8 @@ needed.packages <- c('dplyr','data.table','ggplot2','rlang','xlsx','leaflet','ht
 udf.load_packages(needed_packages = needed.packages)
 
 
-#Change the filepath to where you have saved the dataset. NOTE: Use "/" instead of the Windows default "/"
-working_data <- data.table::fread(file = "M:/Rehan/Private/CAS Severe Weather Workshop/Presentation Files/Participant_Data.csv",
+#Import Data from folder into workspace
+working_data <- data.table::fread(file = "Participant_Data.csv",
                                   sep = ",",
                                   stringsAsFactors = FALSE,
                                   data.table = FALSE)
@@ -155,7 +159,7 @@ dynamic_map_numeric
 
 #Export Dynamic map as html
 #htmlwidgets::saveWidget(widget = dynamic_map_numeric, 
-#                        file = "PLEASE SET FILEPATH HERE", 
+#                        file = "example_filename.html", 
 #                        selfcontained = TRUE)
 
 
@@ -241,5 +245,5 @@ dynamic_map_categorical
 
 #Export Dynamic map as html
 #htmlwidgets::saveWidget(widget = dynamic_map_categorical, 
-#                        file = "PLEASE SET FILEPATH HERE", 
+#                        file = "example_filename.html", 
 #                        selfcontained = TRUE)
